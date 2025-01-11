@@ -6,6 +6,7 @@ import (
 	"learnlit/models"
 	"learnlit/utils"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -155,4 +156,116 @@ func UpdateProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Profile updated successfully"})
+}
+
+func AddToCart(c *gin.Context) {
+	var input struct {
+		CourseID string `json:"id" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID, _ := c.Get("userId")
+	userObjID, _ := primitive.ObjectIDFromHex(userID.(string))
+	courseObjID, _ := primitive.ObjectIDFromHex(input.CourseID)
+
+	result, err := database.DB.Collection("users").UpdateOne(
+		context.Background(),
+		bson.M{"_id": userObjID},
+		bson.M{"$addToSet": bson.M{"cart": courseObjID}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add to cart"})
+		return
+	}
+
+	if result.ModifiedCount == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Course already in cart"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Added to cart"})
+}
+
+func RemoveFromCart(c *gin.Context) {
+	courseID := c.Param("id")
+	courseObjID, err := primitive.ObjectIDFromHex(courseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid course ID"})
+		return
+	}
+
+	userID, _ := c.Get("userId")
+	userObjID, _ := primitive.ObjectIDFromHex(userID.(string))
+
+	result, err := database.DB.Collection("users").UpdateOne(
+		context.Background(),
+		bson.M{"_id": userObjID},
+		bson.M{"$pull": bson.M{"cart": courseObjID}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove from cart"})
+		return
+	}
+
+	if result.ModifiedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Course not found in cart"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Removed from cart"})
+}
+
+func Checkout(c *gin.Context) {
+	var input struct {
+		CourseIDs []string `json:"ids" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID, _ := c.Get("userId")
+	userObjID, _ := primitive.ObjectIDFromHex(userID.(string))
+
+	var courseObjIDs []primitive.ObjectID
+	for _, id := range input.CourseIDs {
+		objID, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid course ID"})
+			return
+		}
+		courseObjIDs = append(courseObjIDs, objID)
+	}
+
+	// Add courses to enrolled courses
+	enrolledCourses := make([]models.EnrolledCourse, len(courseObjIDs))
+	for i, courseID := range courseObjIDs {
+		enrolledCourses[i] = models.EnrolledCourse{
+			Course:     courseID,
+			EnrolledOn: time.Now(),
+		}
+	}
+
+	_, err := database.DB.Collection("users").UpdateOne(
+		context.Background(),
+		bson.M{"_id": userObjID},
+		bson.M{
+			"$addToSet": bson.M{"enrolledCourses": bson.M{"$each": enrolledCourses}},
+			"$pull": bson.M{
+				"cart":     bson.M{"$in": courseObjIDs},
+				"wishlist": bson.M{"$in": courseObjIDs},
+			},
+		},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process checkout"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Checkout successful"})
 }

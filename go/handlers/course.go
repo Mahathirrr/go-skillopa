@@ -122,3 +122,115 @@ func GetPostedCourses(c *gin.Context) {
 
 	c.JSON(http.StatusOK, courses)
 }
+
+func GetAllPublishedCourses(c *gin.Context) {
+	var courses []models.Course
+	cursor, err := database.DB.Collection("courses").Find(context.Background(), bson.M{"published": true})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch courses"})
+		return
+	}
+	defer cursor.Close(context.Background())
+
+	if err = cursor.All(context.Background(), &courses); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode courses"})
+		return
+	}
+
+	c.JSON(http.StatusOK, courses)
+}
+
+func GetCourse(c *gin.Context) {
+	var input struct {
+		ID   string `json:"id"`
+		Slug string `json:"slug"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var filter bson.M
+	if input.ID != "" {
+		objID, err := primitive.ObjectIDFromHex(input.ID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid course ID"})
+			return
+		}
+		filter = bson.M{"_id": objID}
+	} else if input.Slug != "" {
+		filter = bson.M{"slug": input.Slug}
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID or slug is required"})
+		return
+	}
+
+	var course models.Course
+	err := database.DB.Collection("courses").FindOne(context.Background(), filter).Decode(&course)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Course not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, course)
+}
+
+func CreateCourse(c *gin.Context) {
+	var course models.Course
+	if err := c.ShouldBindJSON(&course); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID, _ := c.Get("userId")
+	objID, _ := primitive.ObjectIDFromHex(userID.(string))
+	course.PostedBy = objID
+
+	result, err := database.DB.Collection("courses").InsertOne(context.Background(), course)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create course"})
+		return
+	}
+
+	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+		course.ID = oid
+	}
+
+	c.JSON(http.StatusCreated, course)
+}
+
+func UpdateCourse(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid course ID"})
+		return
+	}
+
+	var updates models.Course
+	if err := c.ShouldBindJSON(&updates); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID, _ := c.Get("userId")
+	userObjID, _ := primitive.ObjectIDFromHex(userID.(string))
+
+	result, err := database.DB.Collection("courses").UpdateOne(
+		context.Background(),
+		bson.M{"_id": objID, "postedBy": userObjID},
+		bson.M{"$set": updates},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update course"})
+		return
+	}
+
+	if result.MatchedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Course not found or unauthorized"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Course updated successfully"})
+}

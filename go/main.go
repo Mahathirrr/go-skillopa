@@ -29,10 +29,14 @@ func main() {
 
 	// Configure CORS
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{os.Getenv("CLIENT_URL")}
+	clientURL := os.Getenv("CLIENT_URL")
+	if clientURL == "" {
+		clientURL = "http://localhost:3000" // Default fallback
+	}
+	config.AllowOrigins = []string{clientURL}
 	config.AllowCredentials = true
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
-	config.AllowHeaders = []string{"Content-Type", "Authorization"}
+	config.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}
 	r.Use(cors.New(config))
 
 	// Initialize MongoDB connection
@@ -47,4 +51,3 @@ func main() {
 		log.Fatal(err)
 	}
 }
-
