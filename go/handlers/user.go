@@ -2,16 +2,14 @@ package handlers
 
 import (
 	"context"
+	"learnlit/database"
+	"learnlit/models"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"learnlit/database"
-	"learnlit/models"
-	"learnlit/utils"
 )
 
 func AddToCart(c *gin.Context) {
@@ -33,7 +31,6 @@ func AddToCart(c *gin.Context) {
 		bson.M{"_id": objID},
 		bson.M{"$addToSet": bson.M{"cart": courseID}},
 	)
-
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add to cart"})
 		return
@@ -59,7 +56,6 @@ func RemoveFromCart(c *gin.Context) {
 		bson.M{"_id": userObjID},
 		bson.M{"$pull": bson.M{"cart": courseObjID}},
 	)
-
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove from cart"})
 		return
@@ -104,7 +100,7 @@ func Checkout(c *gin.Context) {
 	_, err := database.DB.Collection("courses").UpdateMany(
 		context.Background(),
 		bson.M{
-			"_id": bson.M{"$in": courseIDs},
+			"_id":     bson.M{"$in": courseIDs},
 			"pricing": "Free",
 		},
 		bson.M{
@@ -115,7 +111,6 @@ func Checkout(c *gin.Context) {
 			},
 		},
 	)
-
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update courses"})
 		return
@@ -128,12 +123,11 @@ func Checkout(c *gin.Context) {
 		bson.M{
 			"$addToSet": bson.M{"enrolledCourses": bson.M{"$each": enrolledCourses}},
 			"$pull": bson.M{
-				"cart": bson.M{"$in": courseIDs},
+				"cart":     bson.M{"$in": courseIDs},
 				"wishlist": bson.M{"$in": courseIDs},
 			},
 		},
 	)
-
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
 		return
@@ -141,3 +135,4 @@ func Checkout(c *gin.Context) {
 
 	c.JSON(http.StatusOK, result)
 }
+

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"learnlit/database"
+	"learnlit/routes"
 	"log"
 	"net/http"
 	"os"
@@ -12,7 +14,7 @@ import (
 
 func main() {
 	// Load .env file
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load("../.env"); err != nil {
 		log.Printf("Warning: .env file not found")
 	}
 
@@ -34,10 +36,10 @@ func main() {
 	r.Use(cors.New(config))
 
 	// Initialize MongoDB connection
-	initDB()
+	database.InitDB()
 
 	// Setup routes
-	setupRoutes(r)
+	routes.SetupRoutes(r)
 
 	// Start server
 	log.Printf("Server running on port %s", port)
@@ -45,3 +47,4 @@ func main() {
 		log.Fatal(err)
 	}
 }
+

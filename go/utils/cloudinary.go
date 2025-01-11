@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"os"
 
 	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
@@ -21,10 +22,10 @@ func UploadToCloudinary(file []byte) (string, error) {
 			UseFilename:    true,
 			UniqueFilename: true,
 		})
-
 	if err != nil {
 		return "", err
 	}
 
 	return uploadResult.SecureURL, nil
 }
+

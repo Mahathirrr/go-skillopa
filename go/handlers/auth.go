@@ -2,16 +2,16 @@ package handlers
 
 import (
 	"context"
+	"learnlit/database"
+	"learnlit/models"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/bson"
 	"golang.org/x/crypto/bcrypt"
-
-	"learnlit/database"
-	"learnlit/models"
 )
 
 func Register(c *gin.Context) {
@@ -75,3 +75,4 @@ func Register(c *gin.Context) {
 		"token": tokenString,
 	})
 }
+

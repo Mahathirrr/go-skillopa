@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"learnlit/models"
 	"os"
 
 	"github.com/midtrans/midtrans-go"
@@ -39,8 +40,8 @@ func CreatePaymentToken(orderID string, amount float64, user models.User, course
 			},
 		},
 		Callbacks: &snap.Callbacks{
-			Finish: os.Getenv("CLIENT_URL") + "/payment/finish",
-			Error:  os.Getenv("CLIENT_URL") + "/payment/error",
+			Finish:  os.Getenv("CLIENT_URL") + "/payment/finish",
+			Error:   os.Getenv("CLIENT_URL") + "/payment/error",
 			Pending: os.Getenv("CLIENT_URL") + "/payment/pending",
 		},
 	}
@@ -55,3 +56,4 @@ func CreatePaymentToken(orderID string, amount float64, user models.User, course
 		RedirectURL: snapResp.RedirectURL,
 	}, nil
 }
+

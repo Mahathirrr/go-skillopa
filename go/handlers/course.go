@@ -2,30 +2,27 @@ package handlers
 
 import (
 	"context"
+	"learnlit/database"
+	"learnlit/models"
+	"learnlit/utils"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
-
-	"learnlit/database"
-	"learnlit/models"
-	"learnlit/utils"
 )
 
 func GetAllPublishedCourses(c *gin.Context) {
 	courses := []models.Course{}
-	
+
 	opts := options.Find().SetProjection(bson.M{
-		"meta": 0,
+		"meta":       0,
 		"curriculum": 0,
 	})
 
-	cursor, err := database.DB.Collection("courses").Find(context.Background(), 
+	cursor, err := database.DB.Collection("courses").Find(context.Background(),
 		bson.M{"published": true}, opts)
-	
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch courses"})
 		return
@@ -56,9 +53,9 @@ func CreateCourse(c *gin.Context) {
 
 	// Check if title exists
 	var existingCourse models.Course
-	err := database.DB.Collection("courses").FindOne(context.Background(), 
+	err := database.DB.Collection("courses").FindOne(context.Background(),
 		bson.M{"slug": slug}).Decode(&existingCourse)
-	
+
 	if err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Title is taken"})
 		return
@@ -116,7 +113,7 @@ func GetCourse(c *gin.Context) {
 			if enrollment.ID == userObjID {
 				course.Meta.Enrollments = nil
 				c.JSON(http.StatusOK, gin.H{
-					"course": course,
+					"course":         course,
 					"isUserEnrolled": true,
 				})
 				return
@@ -126,7 +123,8 @@ func GetCourse(c *gin.Context) {
 
 	course.Meta.Enrollments = nil
 	c.JSON(http.StatusOK, gin.H{
-		"course": course,
+		"course":         course,
 		"isUserEnrolled": false,
 	})
 }
+

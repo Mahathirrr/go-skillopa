@@ -1,0 +1,321 @@
+openapi: 3.0.0
+info:
+  title: LearnLit API
+  version: 1.0.0
+  description: API for LearnLit learning platform
+
+servers:
+  - url: http://localhost:8000/api
+    description: Development server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        avatar:
+          type: string
+        role:
+          type: array
+          items:
+            type: string
+            enum: [Subscriber, Instructor, Admin]
+        authProvider:
+          type: string
+          enum: [email, google]
+        cart:
+          type: array
+          items:
+            type: string
+        wishlist:
+          type: array
+          items:
+            type: string
+        enrolledCourses:
+          type: array
+          items:
+            type: object
+            properties:
+              course:
+                type: string
+              enrolledOn:
+                type: string
+                format: date-time
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        subtitle:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        subCategory:
+          type: string
+        language:
+          type: string
+        duration:
+          type: string
+        coverImage:
+          type: string
+        instructors:
+          type: array
+          items:
+            type: string
+        level:
+          type: string
+          enum: [Beginner, Intermediate, Expert, All Levels]
+        pricing:
+          type: string
+          enum: [Free, Paid]
+        price:
+          type: number
+        published:
+          type: boolean
+
+paths:
+  /auth/register:
+    post:
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 6
+      responses:
+        201:
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /auth/login:
+    post:
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        200:
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+                  token:
+                    type: string
+
+  /auth/google-login:
+    post:
+      summary: Login with Google
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                name:
+                  type: string
+                picture:
+                  type: string
+      responses:
+        200:
+          description: Google login successful
+
+  /user/current-user:
+    get:
+      summary: Get current user profile
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /user/cart:
+    get:
+      summary: Get user's cart
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: Cart retrieved successfully
+    post:
+      summary: Add item to cart
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+      responses:
+        200:
+          description: Item added to cart
+
+  /courses:
+    get:
+      summary: Get courses by category
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+        - in: query
+          name: subCategory
+          schema:
+            type: string
+      responses:
+        200:
+          description: Courses retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Course"
+
+  /create-course:
+    post:
+      summary: Create new course
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Course"
+      responses:
+        201:
+          description: Course created successfully
+
+  /payment/create:
+    post:
+      summary: Create payment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                courseId:
+                  type: string
+      responses:
+        200:
+          description: Payment created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                  paymentLink:
+                    type: string
+                  token:
+                    type: string
+
+  /become-instructor:
+    post:
+      summary: Become an instructor
+      security:
+        - BearerAuth: []
+      responses:
+        201:
+          description: Instructor profile created successfully
+
+  /instructor/{id}:
+    get:
+      summary: Get instructor profile
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Instructor profile retrieved successfully
+
+    put:
+      summary: Update instructor profile
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                headline:
+                  type: string
+                bio:
+                  type: string
+      responses:
+        200:
+          description: Profile updated successfully

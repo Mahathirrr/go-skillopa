@@ -1,15 +1,15 @@
 package routes
 
 import (
-	"github.com/gin-gonic/gin"
-	
 	"learnlit/handlers"
 	"learnlit/middleware"
+
+	"github.com/gin-gonic/gin"
 )
 
 func SetupRoutes(r *gin.Engine) {
 	api := r.Group("/api")
-	
+
 	// Auth routes
 	auth := api.Group("/auth")
 	{
