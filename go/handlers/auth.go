@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -41,15 +42,12 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	// Create user
 	user := models.User{
 		Name:         input.Name,
 		Email:        input.Email,
 		Password:     string(hashedPassword),
 		Role:         []string{"Subscriber"},
 		AuthProvider: "email",
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
 	}
 
 	result, err := database.DB.Collection("users").InsertOne(context.Background(), user)
@@ -58,9 +56,17 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	// Convert InsertedID to ObjectID
+	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+		user.ID = oid
+	} else {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user ID"})
+		return
+	}
+
 	// Generate JWT
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": result.InsertedID,
+		"sub": user.ID.Hex(),
 		"exp": time.Now().Add(time.Hour * 24 * 7).Unix(),
 	})
 
@@ -75,4 +81,3 @@ func Register(c *gin.Context) {
 		"token": tokenString,
 	})
 }
-

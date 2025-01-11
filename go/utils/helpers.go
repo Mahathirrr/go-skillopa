@@ -3,6 +3,9 @@ package utils
 import (
 	"strings"
 	"unicode"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func CreateSlug(title string) string {
@@ -19,8 +22,10 @@ func CreateSlug(title string) string {
 
 func SnakeCaseToTitle(s string) string {
 	words := strings.Split(s, "-")
+	caser := cases.Title(language.English)
 	for i, word := range words {
-		words[i] = strings.Title(word)
+		words[i] = caser.String(word)
 	}
 	return strings.Join(words, " ")
 }
+

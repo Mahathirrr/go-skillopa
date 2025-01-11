@@ -8,21 +8,13 @@ import (
 	"github.com/midtrans/midtrans-go/snap"
 )
 
-type Transaction struct {
-	Token       string
-	RedirectURL string
-}
-
-func CreatePaymentToken(orderID string, amount float64, user models.User, course models.Course) (*Transaction, error) {
-	// Configure Midtrans client
+func CreatePaymentToken(orderId string, amount int64, user models.User, course models.Course) (*snap.Response, error) {
 	var client snap.Client
 	client.New(os.Getenv("MIDTRANS_SERVER_KEY"), midtrans.Sandbox)
-
-	// Create transaction details
 	req := &snap.Request{
 		TransactionDetails: midtrans.TransactionDetails{
-			OrderID:  orderID,
-			GrossAmt: int64(amount),
+			OrderID:  orderId,
+			GrossAmt: amount,
 		},
 		CreditCard: &snap.CreditCardDetails{
 			Secure: true,
@@ -34,26 +26,21 @@ func CreatePaymentToken(orderID string, amount float64, user models.User, course
 		Items: &[]midtrans.ItemDetails{
 			{
 				ID:    course.ID.Hex(),
-				Price: int64(course.Price),
+				Price: amount,
 				Qty:   1,
 				Name:  course.Title,
 			},
 		},
-		Callbacks: &snap.Callbacks{
-			Finish:  os.Getenv("CLIENT_URL") + "/payment/finish",
-			Error:   os.Getenv("CLIENT_URL") + "/payment/error",
-			Pending: os.Getenv("CLIENT_URL") + "/payment/pending",
+		EnabledPayments: []snap.SnapPaymentType{
+			snap.PaymentTypeGopay,
+			snap.PaymentTypeBankTransfer,
+			snap.PaymentTypeCreditCard,
 		},
 	}
 
-	snapResp, err := client.CreateTransaction(req)
+	resp, err := client.CreateTransaction(req)
 	if err != nil {
 		return nil, err
 	}
-
-	return &Transaction{
-		Token:       snapResp.Token,
-		RedirectURL: snapResp.RedirectURL,
-	}, nil
+	return resp, nil
 }
-

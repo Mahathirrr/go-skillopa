@@ -12,6 +12,7 @@ require (
 	github.com/midtrans/midtrans-go v1.3.8
 	go.mongodb.org/mongo-driver v1.13.1
 	golang.org/x/crypto v0.17.0
+	golang.org/x/text v0.14.0
 )
 
 require (
@@ -47,7 +48,6 @@ require (
 	golang.org/x/net v0.16.0 // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/sys v0.15.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

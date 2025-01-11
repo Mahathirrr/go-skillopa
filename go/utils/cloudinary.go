@@ -14,18 +14,20 @@ func UploadToCloudinary(file []byte) (string, error) {
 		return "", err
 	}
 
+	// Convert bool to *bool
+	useFalse := false
+	uniqueFalse := false
+
 	uploadResult, err := cld.Upload.Upload(
 		context.Background(),
 		file,
 		uploader.UploadParams{
 			Folder:         "user_avatars",
-			UseFilename:    true,
-			UniqueFilename: true,
+			UseFilename:    &useFalse,
+			UniqueFilename: &uniqueFalse,
 		})
 	if err != nil {
 		return "", err
 	}
-
 	return uploadResult.SecureURL, nil
 }
-

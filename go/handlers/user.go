@@ -4,17 +4,60 @@ import (
 	"context"
 	"learnlit/database"
 	"learnlit/models"
+	"learnlit/utils"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func AddToCart(c *gin.Context) {
+func CurrentUser(c *gin.Context) {
+	userID, _ := c.Get("userId")
+	objID, _ := primitive.ObjectIDFromHex(userID.(string))
+
+	var user models.User
+	err := database.DB.Collection("users").FindOne(context.Background(), bson.M{"_id": objID}).Decode(&user)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	user.Password = "" // Don't send password
+	c.JSON(http.StatusOK, user)
+}
+
+func GetCart(c *gin.Context) {
+	userID, _ := c.Get("userId")
+	objID, _ := primitive.ObjectIDFromHex(userID.(string))
+
+	var user models.User
+	err := database.DB.Collection("users").FindOne(context.Background(), bson.M{"_id": objID}).Decode(&user)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, user.Cart)
+}
+
+func GetWishlist(c *gin.Context) {
+	userID, _ := c.Get("userId")
+	objID, _ := primitive.ObjectIDFromHex(userID.(string))
+
+	var user models.User
+	err := database.DB.Collection("users").FindOne(context.Background(), bson.M{"_id": objID}).Decode(&user)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, user.Wishlist)
+}
+
+func AddToWishlist(c *gin.Context) {
 	var input struct {
-		ID string `json:"id" binding:"required"`
+		CourseID string `json:"courseId" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -24,54 +67,62 @@ func AddToCart(c *gin.Context) {
 
 	userID, _ := c.Get("userId")
 	objID, _ := primitive.ObjectIDFromHex(userID.(string))
-	courseID, _ := primitive.ObjectIDFromHex(input.ID)
+	courseID, _ := primitive.ObjectIDFromHex(input.CourseID)
 
-	result, err := database.DB.Collection("users").UpdateOne(
+	_, err := database.DB.Collection("users").UpdateOne(
 		context.Background(),
 		bson.M{"_id": objID},
-		bson.M{"$addToSet": bson.M{"cart": courseID}},
+		bson.M{"$addToSet": bson.M{"wishlist": courseID}},
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add to cart"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add to wishlist"})
 		return
 	}
 
-	if result.ModifiedCount == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Course already in cart"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"success": true})
+	c.JSON(http.StatusOK, gin.H{"message": "Added to wishlist"})
 }
 
-func RemoveFromCart(c *gin.Context) {
+func RemoveFromWishlist(c *gin.Context) {
 	courseID := c.Param("id")
 	courseObjID, _ := primitive.ObjectIDFromHex(courseID)
 
 	userID, _ := c.Get("userId")
 	userObjID, _ := primitive.ObjectIDFromHex(userID.(string))
 
-	result, err := database.DB.Collection("users").UpdateOne(
+	_, err := database.DB.Collection("users").UpdateOne(
 		context.Background(),
 		bson.M{"_id": userObjID},
-		bson.M{"$pull": bson.M{"cart": courseObjID}},
+		bson.M{"$pull": bson.M{"wishlist": courseObjID}},
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove from cart"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove from wishlist"})
 		return
 	}
 
-	if result.ModifiedCount == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Course not in cart"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"success": true})
+	c.JSON(http.StatusOK, gin.H{"message": "Removed from wishlist"})
 }
 
-func Checkout(c *gin.Context) {
+func GetEnrolledCourses(c *gin.Context) {
+	userID, _ := c.Get("userId")
+	objID, _ := primitive.ObjectIDFromHex(userID.(string))
+
+	var user models.User
+	err := database.DB.Collection("users").FindOne(context.Background(), bson.M{"_id": objID}).Decode(&user)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, user.EnrolledCourses)
+}
+
+func UpdateProfile(c *gin.Context) {
+	userID, _ := c.Get("userId")
+	objID, _ := primitive.ObjectIDFromHex(userID.(string))
+
 	var input struct {
-		IDs []string `json:"ids" binding:"required"`
+		Name   string `json:"name"`
+		Avatar string `json:"avatar"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -79,60 +130,29 @@ func Checkout(c *gin.Context) {
 		return
 	}
 
-	userID, _ := c.Get("userId")
-	userObjID, _ := primitive.ObjectIDFromHex(userID.(string))
-
-	var courseIDs []primitive.ObjectID
-	for _, id := range input.IDs {
-		objID, _ := primitive.ObjectIDFromHex(id)
-		courseIDs = append(courseIDs, objID)
+	update := bson.M{}
+	if input.Name != "" {
+		update["name"] = input.Name
 	}
-
-	enrolledCourses := make([]models.EnrolledCourse, len(courseIDs))
-	for i, courseID := range courseIDs {
-		enrolledCourses[i] = models.EnrolledCourse{
-			Course:     courseID,
-			EnrolledOn: time.Now(),
+	if input.Avatar != "" {
+		// Handle avatar upload using cloudinary
+		avatarURL, err := utils.UploadToCloudinary([]byte(input.Avatar))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload avatar"})
+			return
 		}
+		update["avatar"] = avatarURL
 	}
 
-	// Update courses with enrollments
-	_, err := database.DB.Collection("courses").UpdateMany(
+	_, err := database.DB.Collection("users").UpdateOne(
 		context.Background(),
-		bson.M{
-			"_id":     bson.M{"$in": courseIDs},
-			"pricing": "Free",
-		},
-		bson.M{
-			"$addToSet": bson.M{
-				"meta.enrollments": bson.M{
-					"id": userObjID,
-				},
-			},
-		},
+		bson.M{"_id": objID},
+		bson.M{"$set": update},
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update courses"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
 		return
 	}
 
-	// Update user enrollments and clear cart/wishlist
-	result, err := database.DB.Collection("users").UpdateOne(
-		context.Background(),
-		bson.M{"_id": userObjID},
-		bson.M{
-			"$addToSet": bson.M{"enrolledCourses": bson.M{"$each": enrolledCourses}},
-			"$pull": bson.M{
-				"cart":     bson.M{"$in": courseIDs},
-				"wishlist": bson.M{"$in": courseIDs},
-			},
-		},
-	)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
-		return
-	}
-
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, gin.H{"message": "Profile updated successfully"})
 }
-
